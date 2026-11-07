@@ -59,6 +59,10 @@ class SideView {
     var flashUp by mutableStateOf<Boolean?>(null)
     /** continuous idle bob phase (0..1 looping), advanced by the UI's frame loop */
     var idle by mutableFloatStateOf(0f)
+    /** BW2-style entry pop (0..1): a quick squash-and-settle when the Pokémon lands on the field. */
+    val entryPop = Anim(0f)
+    /** Short white hit-flash (0..1 then back to 0), pulsed on each damaging hit. */
+    val hitFlash = Anim(0f)
     /** a substitute doll is standing in for this Pokémon */
     var substitute by mutableStateOf(false)
     /** 0..1 swap/pop animation progress for the substitute doll */
@@ -170,7 +174,10 @@ class BattleSession(
                 v.substitute = false; v.subAnim.snapTo(0f)
                 v.visible = true
                 v.statusTick++
+                v.entryPop.snapTo(0f)
                 v.enter.animateTo(1f, (350 * animScale).toInt().coerceAtLeast(1))
+                // BW2 landing squash-and-settle right after the slide-in finishes.
+                v.entryPop.animateTo(1f, (420 * animScale).toInt().coerceAtLeast(1))
             }
             is BattleEvent.Withdraw -> {
                 val v = views[e.side]
@@ -221,8 +228,17 @@ class BattleSession(
             is BattleEvent.Hit -> {
                 val v = views[e.side]
                 val d = (45 * animScale).toInt().coerceAtLeast(1)
-                repeat(if (e.effectiveness > 4) 4 else 3) {
-                    v.shake.animateTo(1f, d); v.shake.animateTo(0f, d)
+                // Brief white flash on impact, in parallel with the shake (BW2 hit blink).
+                coroutineScope {
+                    launch {
+                        v.hitFlash.snapTo(1f)
+                        v.hitFlash.animateTo(0f, (160 * animScale).toInt().coerceAtLeast(1))
+                    }
+                    launch {
+                        repeat(if (e.effectiveness > 4) 4 else 3) {
+                            v.shake.animateTo(1f, d); v.shake.animateTo(0f, d)
+                        }
+                    }
                 }
             }
             is BattleEvent.StatAnim -> {

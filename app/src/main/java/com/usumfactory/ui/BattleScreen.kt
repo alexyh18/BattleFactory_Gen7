@@ -100,6 +100,8 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
     // read animated values so the canvas redraws
     val fe = foe.enter.value; val ff = foe.faint.value; val fs = foe.shake.value; val fl = foe.lunge.value
     val me1 = me.enter.value; val mf = me.faint.value; val ms = me.shake.value; val ml = me.lunge.value
+    val fPop = foe.entryPop.value; val fHit = foe.hitFlash.value
+    val mPop = me.entryPop.value; val mHit = me.hitFlash.value
     val weather = s.weather
     val bg = vm.sprites.battleBackground(s.background)
     Canvas(Modifier.fillMaxSize().clipToBounds()) {
@@ -110,6 +112,11 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
         // gentle idle bob (vertical) so the Pokémon don't look frozen
         val foeBob = sin(foe.idle * 2f * Math.PI.toFloat()) * 2.5f * u
         val myBob = sin((me.idle + 0.5f) * 2f * Math.PI.toFloat()) * 3f * u
+        // BW2-style "breathing": a slow squash-and-stretch of the sprite. The vertical and horizontal
+        // scales swing in opposition (volume-preserving) so the Pokémon gently swells and settles.
+        // Only active while idle (not fainting / not lunging / not popping in).
+        val foeBreath = sin(foe.idle * 2f * Math.PI.toFloat())
+        val myBreath = sin((me.idle + 0.5f) * 2f * Math.PI.toFloat())
         // foe (front sprite, 96x96) stands on the far platform near (186, 98); slides in from the right
         if (foeBmp != null && (foe.visible || ff < 1f) && !foe.hidden) {
             val sz = 96 * u
@@ -118,9 +125,16 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
             val y = (110 - 96) * u + ff * 40 * u + (if (ff == 0f) foeBob else 0f)
             val a = (if (foe.visible) fe else 1f) * (1f - ff)
             val subP = foe.subAnim.value
+            // entry pop: lands squashed (wide/short) then springs to normal
+            val pop = squashStretch(fPop)
+            val idleAmp = if (ff == 0f && foe.visible) 1f else 0f
+            // lunge adds a brief stretch toward the target (tall/thin at the peak of the lunge)
+            val lungeK = sin(fl * Math.PI.toFloat()) * 0.08f
+            val sx = (1f + foeBreath * 0.03f * idleAmp - lungeK) * pop.first
+            val sy = (1f - foeBreath * 0.03f * idleAmp + lungeK) * pop.second
             spriteShadow(x, (110 - 96) * u + ff * 40 * u, sz, 0.86f, a)
             // Show the doll while the substitute is up, the Pokémon otherwise. Cross-fade on the swap.
-            if (subP < 1f) sprite(foeBmp, x, y, sz, alpha = a * (1f - subP), flash = foe.flashUp)
+            if (subP < 1f) sprite(foeBmp, x, y, sz, alpha = a * (1f - subP), flash = foe.flashUp, sx = sx, sy = sy, hitFlash = fHit)
             if (subP > 0f) drawSubDoll(x + sz / 2, (110) * u, sz * 0.5f * subP, a)
         }
         // player (back sprite, scaled up like BW's closer camera) on the near platform; slides in from the left
@@ -131,8 +145,13 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
             val y = (196 - 132) * u + mf * 50 * u + (if (mf == 0f) myBob else 0f)
             val a = (if (me.visible) me1 else 1f) * (1f - mf)
             val subP = me.subAnim.value
+            val pop = squashStretch(mPop)
+            val idleAmp = if (mf == 0f && me.visible) 1f else 0f
+            val lungeK = sin(ml * Math.PI.toFloat()) * 0.08f
+            val sx = (1f + myBreath * 0.03f * idleAmp - lungeK) * pop.first
+            val sy = (1f - myBreath * 0.03f * idleAmp + lungeK) * pop.second
             spriteShadow(x, (196 - 132) * u + mf * 50 * u, sz, 0.9f, a)
-            if (subP < 1f) sprite(myBmp, x, y, sz, alpha = a * (1f - subP), flash = me.flashUp)
+            if (subP < 1f) sprite(myBmp, x, y, sz, alpha = a * (1f - subP), flash = me.flashUp, sx = sx, sy = sy, hitFlash = mHit)
             if (subP > 0f) drawSubDoll(x + sz / 2, (188) * u, sz * 0.42f * subP, a)
         }
         // move effect overlay (procedural): travels from the user toward the target
@@ -257,14 +276,49 @@ private fun DrawScope.spriteShadow(x: Float, y: Float, sz: Float, foot: Float, a
     )
 }
 
-private fun DrawScope.sprite(bmp: ImageBitmap, x: Float, y: Float, sz: Float, alpha: Float, flash: Boolean?) {
+/**
+ * BW2 entry squash-and-settle. Given pop progress p (0 = just landed, 1 = fully settled), returns the
+ * (widthScale, heightScale) to apply. The Pokémon lands squashed (wide & short), overshoots tall, then
+ * settles to 1,1. Returns (1,1) once p >= 1 so it has no effect outside the entry.
+ */
+private fun squashStretch(p: Float): Pair<Float, Float> {
+    if (p <= 0f || p >= 1f) return 1f to 1f
+    // a decaying oscillation: strong squash at the start, settling to 0
+    val amp = (1f - p) * (1f - p)
+    val wave = kotlin.math.cos(p * 2.4f * Math.PI.toFloat()) // starts at +1 (squashed) and oscillates
+    val k = amp * wave * 0.18f
+    return (1f + k) to (1f - k)
+}
+
+/**
+ * Draws a battle sprite with optional non-uniform scale (BW2 breathing squash-stretch). [x],[y] is the
+ * top-left of the square [sz] slot; [sx],[sy] scale the drawn width/height around the bottom-centre
+ * (the "foot"), so the Pokémon appears planted while it breathes. [flash] tints up/down (stat/Mega/Z);
+ * [hitFlash] (0..1) adds a brief white flash when the Pokémon is struck.
+ */
+private fun DrawScope.sprite(
+    bmp: ImageBitmap, x: Float, y: Float, sz: Float, alpha: Float, flash: Boolean?,
+    sx: Float = 1f, sy: Float = 1f, hitFlash: Float = 0f,
+) {
     val a = alpha.coerceIn(0f, 1f)
-    drawImage(bmp, IntOffset.Zero, IntSize(bmp.width, bmp.height), IntOffset(x.toInt(), y.toInt()), IntSize(sz.toInt(), sz.toInt()),
-        alpha = a, filterQuality = FilterQuality.None)
+    val w = sz * sx
+    val h = sz * sy
+    // anchor the scaled sprite at the bottom-centre of its slot so the feet stay on the platform
+    val dx = (x + (sz - w) / 2f).toInt()
+    val dy = (y + (sz - h)).toInt()
+    val src0 = IntOffset.Zero
+    val srcSz = IntSize(bmp.width, bmp.height)
+    val dst = IntOffset(dx, dy)
+    val dstSz = IntSize(w.toInt().coerceAtLeast(1), h.toInt().coerceAtLeast(1))
+    drawImage(bmp, src0, srcSz, dst, dstSz, alpha = a, filterQuality = FilterQuality.None)
     if (flash != null) {
-        drawImage(bmp, IntOffset.Zero, IntSize(bmp.width, bmp.height), IntOffset(x.toInt(), y.toInt()), IntSize(sz.toInt(), sz.toInt()),
-            alpha = 0.55f * a, filterQuality = FilterQuality.None,
+        drawImage(bmp, src0, srcSz, dst, dstSz, alpha = 0.55f * a, filterQuality = FilterQuality.None,
             colorFilter = ColorFilter.tint(if (flash) Color(0xFFFF6040) else Color(0xFF4080FF), BlendMode.SrcIn))
+    }
+    if (hitFlash > 0f) {
+        drawImage(bmp, src0, srcSz, dst, dstSz, alpha = (0.85f * hitFlash * a).coerceIn(0f, 1f),
+            filterQuality = FilterQuality.None,
+            colorFilter = ColorFilter.tint(Color.White, BlendMode.SrcIn))
     }
 }
 
