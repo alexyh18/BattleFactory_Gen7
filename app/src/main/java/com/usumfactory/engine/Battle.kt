@@ -2301,9 +2301,14 @@ class Battle(
     }
 
     // ------------------------------------------------------------------ stat stages and status
-    suspend fun changeStage(t: BattleMon, stat: Int, amount: Int, source: BattleMon?, fromAbility: Boolean = false, failMsg: Boolean = true) {
+    suspend fun changeStage(t: BattleMon, stat: Int, rawAmount: Int, source: BattleMon?, fromAbility: Boolean = false, failMsg: Boolean = true) {
         if (stat < 1 || t.fainted) return
         val name = Stat.NAMES_KO[stat]
+        // Contrary (심술꾸러기): this Pokémon's stat changes are reversed. Applied first so every downstream
+        // check (Clear Body/Mist/substitute drop-protection, caps, messages) sees the effective direction —
+        // e.g. an opponent's Intimidate/Growl becomes a rise and is no longer treated as a "drop".
+        val contrary = (if (source != null && source !== t) defAbility(source, t) else ability(t)) == Ab.CONTRARY
+        val amount = if (contrary) -rawAmount else rawAmount
         if (amount < 0 && source !== t) {
             if (sideOf(t).mist > 0) { if (failMsg) msg("${nm(t)}은 흰안개로 보호받고 있다!"); return }
             val a = if (source != null) defAbility(source, t) else ability(t)

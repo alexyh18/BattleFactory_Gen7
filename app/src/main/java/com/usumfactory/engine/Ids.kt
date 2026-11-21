@@ -108,6 +108,7 @@ object Ab {
     const val FRISK = 119
     const val RECKLESS = 120
     const val SHEER_FORCE = 125
+    const val CONTRARY = 126
     const val UNNERVE = 127
     const val DEFIANT = 128
     const val DEFEATIST = 129
