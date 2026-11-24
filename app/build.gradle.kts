@@ -13,8 +13,8 @@ android {
         applicationId = "com.usumfactory"
         minSdk = 24
         targetSdk = 34
-        versionCode = 31
-        versionName = "3.10"
+        versionCode = 32
+        versionName = "3.11"
     }
 
     buildTypes {

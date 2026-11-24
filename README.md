@@ -12,7 +12,7 @@
 
 ## 설치
 
-`release/usum-battle-tree-v3.10.apk`를 휴대폰에 받아 설치합니다(“출처를 알 수 없는 앱” 허용 필요, Android 7.0 이상).
+`release/usum-battle-tree-v3.11.apk`를 휴대폰에 받아 설치합니다(“출처를 알 수 없는 앱” 허용 필요, Android 7.0 이상).
 
 ## 출처
 
@@ -21,6 +21,7 @@
 | 배틀트리 세트·트레이너 데이터 | [cristiannomartins/Tree-Sets](https://github.com/cristiannomartins/Tree-Sets) (SM/USUM Battle Tree 카탈로그, CSV/TSV) |
 | 종족치·기술 수치·타입상성·한국어 이름·정적 스프라이트 | [PokéAPI](https://pokeapi.co/) (7세대) · PokeAPI CSV 덤프 |
 | 움직이는 배틀 스프라이트(gen5ani GIF) | [Pokémon Showdown](https://play.pokemonshowdown.com/) gen5ani 세트 |
+| 일부 메가진화 애니(이상해꽃·거북왕·피죤투·갸라도스·후딘·리자몽X) | 팬 제작(diegotoon20, DeviantArt) |
 | 배틀 엔진(데미지·급소·명중·스피드·상성·특성·도구) | 자작 코틀린 엔진 (bw2 기반 Gen5 엔진을 Gen7/페어리로 각색) |
 
 ## 빌드 / 데이터 생성
@@ -37,6 +38,10 @@ python3 tools/extract_usum.py       # Tree-Sets + PokeAPI -> app/src/main/assets
 - bw2 배틀서브웨이 프로젝트(`../bw2-factory`)와 **완전히 독립**된 별도 프로젝트입니다.
 - Gen5 엔진을 가져오면서 **페어리 타입(id 17)**을 타입 상성표(18×18)에 추가했고, 도구 id를 PokeAPI 체계로 재정의했습니다.
 - Rotom·Oricorio·Lycanroc의 폼 세트는 기본 폼으로 매핑. 메가 포켓몬은 스프라이트가 기본 폼을 재사용(종족치·타입·특성은 메가로 변경).
+
+## v3.11 변경점 (메가 애니메이션 9종 추가)
+
+- 애니메이션이 없던 메가진화 9슬롯에 사용자 제공 애니 GIF(diegotoon20 제작) 적용: 메가 이상해꽃(앞·뒤), 메가 거북왕(앞·뒤), 메가 피죤투(앞·뒤), 메가 갸라도스(앞), 메가 후딘(뒤), 메가 리자몽X(뒤). 커스텀 GIF 디코더로 정상 재생 확인
 
 ## v3.10 변경점 (스프라이트 비율 수정)
 
