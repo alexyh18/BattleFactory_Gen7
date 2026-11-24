@@ -739,6 +739,8 @@ class Battle(
                 if (f.substituteHp > 0) msg("${Josa.eunNeun(nm(f))} 영향을 받지 않았다!")
                 else changeStage(f, Stat.ATK, -1, m, fromAbility = true)
             }
+            Ab.DRIZZLE -> setWeather(Weather.RAIN, -1, m)
+            Ab.DROUGHT -> setWeather(Weather.SUN, -1, m)
             Ab.SAND_STREAM -> setWeather(Weather.SAND, -1, m)
             Ab.SNOW_WARNING -> setWeather(Weather.HAIL, -1, m)
             Ab.DOWNLOAD -> if (!f.fainted) {
