@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.request
 import urllib.error
 
@@ -371,9 +372,10 @@ def main():
         }
 
     # ---------- Mega formes (dex rows whose Forme contains "Mega") keyed by base Ndex ----------
-    # The Battle Tree pool has no Charizard/Mewtwo mega sets, so one mega forme per base species is
-    # unambiguous. Each entry carries the mega's types/base stats/ability; the stone id is filled below.
-    mega_by_species = {}
+    # Mega formes, keyed by (base Ndex, variant) so species with TWO megas (Charizard, Mewtwo) each
+    # get their own entry/sprite. variant is "X"/"Y" taken from the Forme name, else "". Each entry
+    # carries the mega's types/base stats/ability; the stone id is filled below from the mega sets.
+    mega_by_key = {}
     for r in dex:
         forme = r.get("Forme", "").strip()
         if "Mega" not in forme:
@@ -381,6 +383,10 @@ def main():
         if not r.get("Ndex", "").strip().isdigit():
             continue
         ndex = int(r["Ndex"])
+        # X/Y marker from the Forme text ("Mega X"/"Mega Y"), normalized to ASCII upper. Fullwidth
+        # Ｘ/Ｙ (U+FF38/FF39) are mapped to ASCII via NFKC so the match is reliable.
+        fn = unicodedata.normalize("NFKC", forme).upper()
+        variant = "X" if "MEGA X" in fn or fn.endswith(" X") else ("Y" if "MEGA Y" in fn or fn.endswith(" Y") else "")
         mtypes = [TYPE_ID[r["Type1"].strip()]]
         mt2 = r.get("Type2", "").strip()
         if mt2 and mt2 != "#N/A" and mt2 in TYPE_ID:
@@ -391,12 +397,15 @@ def main():
             used_abilities.add(norm(ma))
         mbase = [int(r["HP"]), int(r["Attack"]), int(r["Defense"]),
                  int(r["Speed"]), int(r["SpAttack"]), int(r["SpDefense"])]
-        # Resolve the Mega form's own PokeAPI id and download its sprite (fallback to base species sprite).
-        sprite_id = download_mega_sprite(r["Species"].strip())
-        mega_by_species[ndex] = {
-            "species": ndex, "stone": 0, "nameKo": "메가 " + ko_species.get(str(ndex), r["Species"].strip()),
+        # The mega's own PokeAPI sprite: use the X/Y slug for multi-mega species (charizard-mega-x),
+        # otherwise the plain "-mega" slug.
+        slug = norm(r["Species"].strip()) + "-mega" + (("-" + variant.lower()) if variant else "")
+        sprite_id = download_mega_sprite_slug(slug)
+        base_ko = ko_species.get(str(ndex), r["Species"].strip())
+        mega_by_key[(ndex, variant)] = {
+            "species": ndex, "stone": 0, "nameKo": "메가 " + base_ko + variant,
             "types": mtypes, "base": mbase, "ability": ma_id if ma_id is not None else 0,
-            "sprite": sprite_id or ndex,
+            "sprite": sprite_id or ndex, "_variant": variant,
         }
 
     # ---------- sets (Pokemon-Table) ----------
@@ -442,9 +451,15 @@ def main():
             item_id = items_csv.get(islug, 0)
             if item_id:
                 used_items.add(islug)
-            # a Mega set's stone links the base species to its mega forme
-            if is_mega and dexid in mega_by_species and item_id:
-                mega_by_species[dexid]["stone"] = item_id
+            # A Mega set's stone links the base species to its mega forme. For multi-mega species the
+            # stone name carries the X/Y marker (Charizardite X/Y), so pick the matching variant.
+            if is_mega and item_id:
+                toks = unicodedata.normalize("NFKC", item_name).upper().replace("-", " ").split()
+                sv = "X" if "X" in toks else ("Y" if "Y" in toks else "")
+                # Prefer the exact (species, variant); fall back to the single-mega entry.
+                key = (dexid, sv) if (dexid, sv) in mega_by_key else (dexid, "")
+                if key in mega_by_key:
+                    mega_by_key[key]["stone"] = item_id
         move_ids = []
         for c in row[4:8]:
             mv = c.strip()
@@ -467,7 +482,9 @@ def main():
         species_set_ids.setdefault(dexid, []).append(sid)
         sid += 1
 
-    megas_out = [m for m in mega_by_species.values() if m["stone"] != 0]
+    megas_out = [{k: v for k, v in m.items() if k != "_variant"}
+                 for m in mega_by_key.values() if m["stone"] != 0]
+    megas_out.sort(key=lambda m: m["stone"])
 
     # HP-triggered Zen Mode forme (Darmanitan, species 555) if it's in the pool.
     zen_out = []
@@ -882,13 +899,19 @@ def download_pixel_sprites(fid):
     return _save_sprites(fid, data.get("sprites", {})) if data else False
 
 
-def download_mega_sprite(species_name):
-    """Fetch the Mega form's PokeAPI id and download its static pixel sprite. Returns the id or None."""
-    data = api_get("pokemon/%s" % (norm(species_name) + "-mega"))
+def download_mega_sprite_slug(slug):
+    """Fetch a Mega form by its PokeAPI slug (e.g. 'charizard-mega-x') and download its static pixel
+    sprite. Returns the form's PokeAPI id, or None if the slug/sprite can't be fetched."""
+    data = api_get("pokemon/%s" % slug)
     if not data:
         return None
     fid = data.get("id")
     return fid if _save_sprites(fid, data.get("sprites", {})) else None
+
+
+def download_mega_sprite(species_name):
+    """Back-compat: the single-mega slug '<species>-mega'."""
+    return download_mega_sprite_slug(norm(species_name) + "-mega")
 
 
 def download_sprites(dexid):

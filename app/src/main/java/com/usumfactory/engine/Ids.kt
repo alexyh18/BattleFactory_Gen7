@@ -131,6 +131,7 @@ object Ab {
     const val PRANKSTER = 158
     const val SAND_FORCE = 159
     const val IRON_BARBS = 160
+    const val TOUGH_CLAWS = 181  // 단단한발톱 (Mega Charizard X): +1.3x contact-move power
     const val ZEN_MODE = 161  // Darmanitan: flips to the Zen forme while HP <= 1/2.
     const val SCHOOLING = 208  // Wishiwashi: flips to the School form while HP > 1/4 (level 20+).
     // "-ate" / skin abilities: a Normal-type move becomes the ability's type and gains x1.2 power (Gen 7).
