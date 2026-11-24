@@ -3,6 +3,7 @@ package com.usumfactory.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.usumfactory.data.GameData
@@ -59,6 +60,8 @@ class SideView {
     var flashUp by mutableStateOf<Boolean?>(null)
     /** continuous idle bob phase (0..1 looping), advanced by the UI's frame loop */
     var idle by mutableFloatStateOf(0f)
+    /** wall-clock milliseconds elapsed on screen, used to pick the current gen5ani GIF frame */
+    var animClockMs by mutableLongStateOf(0L)
     /** BW2-style entry pop (0..1): a quick squash-and-settle when the Pokémon lands on the field. */
     val entryPop = Anim(0f)
     /** Short white hit-flash (0..1 then back to 0), pulsed on each damaging hit. */

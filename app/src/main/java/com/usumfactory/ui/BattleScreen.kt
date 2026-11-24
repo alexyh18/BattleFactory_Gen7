@@ -52,9 +52,11 @@ fun BattleScreen(vm: GameViewModel, s: BattleSession) {
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
-            val dt = (now - last) / 1_000_000_000f
+            val dtNanos = now - last
+            val dt = dtNanos / 1_000_000_000f
             last = now
-            for (v in s.views) if (v.visible) v.idle = (v.idle + dt * 0.6f) % 1f
+            val dtMs = dtNanos / 1_000_000
+            for (v in s.views) if (v.visible) { v.idle = (v.idle + dt * 0.6f) % 1f; v.animClockMs += dtMs }
         }
     }
     Column(
@@ -94,9 +96,15 @@ fun BattleScreen(vm: GameViewModel, s: BattleSession) {
 private fun Scene(vm: GameViewModel, s: BattleSession) {
     val foe = s.views[1]
     val me = s.views[0]
-    // displaySpecies reflects an active Illusion (일루전) disguise.
-    val foeBmp = foe.mon?.let { vm.sprites.front(it.displaySpecies) }
-    val myBmp = me.mon?.let { vm.sprites.back(it.displaySpecies) }
+    // displaySpecies reflects an active Illusion (일루전) disguise. Prefer the animated gen5ani frame
+    // (Showdown GIF) when one exists for this sprite id; otherwise fall back to the static PNG. Reading
+    // animClockMs here makes the Canvas recompose each frame so the animation plays.
+    val foeClock = foe.animClockMs
+    val meClock = me.animClockMs
+    val foeAnim = foe.mon?.let { vm.sprites.anim(it.displaySpecies, back = false) }
+    val meAnim = me.mon?.let { vm.sprites.anim(it.displaySpecies, back = true) }
+    val foeBmp = foe.mon?.let { m -> foeAnim?.frameAt(foeClock) ?: vm.sprites.front(m.displaySpecies) }
+    val myBmp = me.mon?.let { m -> meAnim?.frameAt(meClock) ?: vm.sprites.back(m.displaySpecies) }
     // read animated values so the canvas redraws
     val fe = foe.enter.value; val ff = foe.faint.value; val fs = foe.shake.value; val fl = foe.lunge.value
     val me1 = me.enter.value; val mf = me.faint.value; val ms = me.shake.value; val ml = me.lunge.value
@@ -127,7 +135,8 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
             val subP = foe.subAnim.value
             // entry pop: lands squashed (wide/short) then springs to normal
             val pop = squashStretch(fPop)
-            val idleAmp = if (ff == 0f && foe.visible) 1f else 0f
+            // Procedural breathing only for static PNG sprites; animated gen5ani GIFs already move.
+            val idleAmp = if (ff == 0f && foe.visible && foeAnim == null) 1f else 0f
             // lunge adds a brief stretch toward the target (tall/thin at the peak of the lunge)
             val lungeK = sin(fl * Math.PI.toFloat()) * 0.08f
             val sx = (1f + foeBreath * 0.03f * idleAmp - lungeK) * pop.first
@@ -146,7 +155,7 @@ private fun Scene(vm: GameViewModel, s: BattleSession) {
             val a = (if (me.visible) me1 else 1f) * (1f - mf)
             val subP = me.subAnim.value
             val pop = squashStretch(mPop)
-            val idleAmp = if (mf == 0f && me.visible) 1f else 0f
+            val idleAmp = if (mf == 0f && me.visible && meAnim == null) 1f else 0f
             val lungeK = sin(ml * Math.PI.toFloat()) * 0.08f
             val sx = (1f + myBreath * 0.03f * idleAmp - lungeK) * pop.first
             val sy = (1f - myBreath * 0.03f * idleAmp + lungeK) * pop.second

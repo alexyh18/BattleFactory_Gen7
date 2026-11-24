@@ -12,14 +12,15 @@
 
 ## 설치
 
-`release/usum-battle-tree-v3.8.apk`를 휴대폰에 받아 설치합니다(“출처를 알 수 없는 앱” 허용 필요, Android 7.0 이상).
+`release/usum-battle-tree-v3.9.apk`를 휴대폰에 받아 설치합니다(“출처를 알 수 없는 앱” 허용 필요, Android 7.0 이상).
 
 ## 출처
 
 | 내용 | 출처 |
 |---|---|
 | 배틀트리 세트·트레이너 데이터 | [cristiannomartins/Tree-Sets](https://github.com/cristiannomartins/Tree-Sets) (SM/USUM Battle Tree 카탈로그, CSV/TSV) |
-| 종족치·기술 수치·타입상성·한국어 이름·스프라이트 | [PokéAPI](https://pokeapi.co/) (7세대) · PokeAPI CSV 덤프 |
+| 종족치·기술 수치·타입상성·한국어 이름·정적 스프라이트 | [PokéAPI](https://pokeapi.co/) (7세대) · PokeAPI CSV 덤프 |
+| 움직이는 배틀 스프라이트(gen5ani GIF) | [Pokémon Showdown](https://play.pokemonshowdown.com/) gen5ani 세트 |
 | 배틀 엔진(데미지·급소·명중·스피드·상성·특성·도구) | 자작 코틀린 엔진 (bw2 기반 Gen5 엔진을 Gen7/페어리로 각색) |
 
 ## 빌드 / 데이터 생성
@@ -36,6 +37,15 @@ python3 tools/extract_usum.py       # Tree-Sets + PokeAPI -> app/src/main/assets
 - bw2 배틀서브웨이 프로젝트(`../bw2-factory`)와 **완전히 독립**된 별도 프로젝트입니다.
 - Gen5 엔진을 가져오면서 **페어리 타입(id 17)**을 타입 상성표(18×18)에 추가했고, 도구 id를 PokeAPI 체계로 재정의했습니다.
 - Rotom·Oricorio·Lycanroc의 폼 세트는 기본 폼으로 매핑. 메가 포켓몬은 스프라이트가 기본 폼을 재사용(종족치·타입·특성은 메가로 변경).
+
+## v3.9 변경점 (gen5ani 움직이는 스프라이트)
+
+- Pokémon Showdown의 gen5ani 애니메이션 GIF로 배틀 스프라이트가 실제로 움직이게 구현
+  - 앱에 의존성 없는 자체 GIF89a 디코더(LZW·팔레트·투명·인터레이스·프레임 disposal 처리)를 넣어, GIF를 프레임 배열로 디코드하고 배틀 화면이 매 프레임 현재 프레임을 그림(기존의 돌진·그림자·히트플래시·슬라이드·대타출동 효과는 그대로 유지, GIF가 있는 포켓몬은 코드로 넣던 숨쉬기 효과만 끔)
+  - 풀 전체(앞 249종·뒤 234종)의 gen5ani GIF를 `assets/anim/`에 포함(약 30MB). gen5ani에 없는 6·7세대 포켓몬과 대부분의 메가진화는 기존 정적 PNG로 자동 폴백
+  - Android 9(API 28) 미만에서는 정적 PNG 사용
+  - 출처: 애니메이션 스프라이트는 Pokémon Showdown gen5ani 세트(play.pokemonshowdown.com)
+  - `tools/fetch_gen5ani.py`로 재다운로드 가능(이미 생성된 species.json/megas.json과 Showdown pokedex만 사용)
 
 ## v3.8 변경점 (잔비/가뭄 특성 수정)
 
