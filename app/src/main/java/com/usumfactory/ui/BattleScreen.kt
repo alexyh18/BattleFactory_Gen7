@@ -310,9 +310,14 @@ private fun DrawScope.sprite(
     sx: Float = 1f, sy: Float = 1f, hitFlash: Float = 0f,
 ) {
     val a = alpha.coerceIn(0f, 1f)
-    val w = sz * sx
-    val h = sz * sy
-    // anchor the scaled sprite at the bottom-centre of its slot so the feet stay on the platform
+    // Preserve the source's aspect ratio: fit the bitmap inside the square [sz] box by its larger side,
+    // so non-square gen5ani frames (and any sprite) aren't stretched. The [sx],[sy] breathing scale is
+    // then applied on top. Anchored at the bottom-centre so the feet stay planted on the platform.
+    val srcW = bmp.width.coerceAtLeast(1)
+    val srcH = bmp.height.coerceAtLeast(1)
+    val fit = sz / maxOf(srcW, srcH)
+    val w = srcW * fit * sx
+    val h = srcH * fit * sy
     val dx = (x + (sz - w) / 2f).toInt()
     val dy = (y + (sz - h)).toInt()
     val src0 = IntOffset.Zero
