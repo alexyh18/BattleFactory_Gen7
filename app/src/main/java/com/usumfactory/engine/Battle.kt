@@ -1617,8 +1617,8 @@ class Battle(
         val contact = move.has("CONTACT")
         // Natural Gift uses up the held berry.
         if (e == "NATURAL_GIFT" && naturalGift(item(m)) != null && !m.fainted) consumeItem(m)
-        // drain
-        if (move.drain > 0 && total > 0) {
+        // drain (a Z-move is a separate move: it neither drains HP nor takes recoil)
+        if (move.drain > 0 && total > 0 && !m.zMoveActive) {
             var h = maxOf(1, total * move.drain / 100)
             if (item(m) == It.BIG_ROOT) h = h * 13 / 10
             if (ability(t) == Ab.LIQUID_OOZE) {
@@ -1638,7 +1638,7 @@ class Battle(
             e == "RECOIL_HALF" -> 50
             else -> 0
         }
-        if (recoilPercent > 0 && total > 0 && ability(m) !in setOf(Ab.ROCK_HEAD, Ab.MAGIC_GUARD) && !m.fainted) {
+        if (recoilPercent > 0 && total > 0 && !m.zMoveActive && ability(m) !in setOf(Ab.ROCK_HEAD, Ab.MAGIC_GUARD) && !m.fainted) {
             msg("${Josa.eunNeun(nm(m))} 공격의 반동으로 데미지를 입었다!")
             damage(m, maxOf(1, total * recoilPercent / 100))
         }
