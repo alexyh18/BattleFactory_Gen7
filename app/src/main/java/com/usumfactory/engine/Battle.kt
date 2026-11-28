@@ -1078,6 +1078,12 @@ class Battle(
         }
         val mtype = moveType(m, move)
         if (absorbed(m, t, move, mtype)) return
+        // Type immunity applies to status moves too: an Electric status move (Thunder Wave) has no
+        // effect on a Ground-type, Poison status (Toxic) no effect on Steel, etc. Damaging moves get
+        // this via the eff==0 check inside attack(); status moves need it here.
+        if (move.isStatus && effectiveness(mtype, m, t) == 0) {
+            msg("${nm(t)}에게는 효과가 없는 것 같다…"); return
+        }
         // Gen 7: Sheer Cold (절대영도) has no effect on Ice-type Pokémon, regardless of the accuracy roll.
         if (move.key == "sheer_cold" && t.hasType(Types.ICE)) {
             msg("${nm(t)}에게는 효과가 없는 것 같다…"); return
